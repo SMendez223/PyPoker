@@ -7,7 +7,7 @@ SUIT =  ['S','C','D','H']
 RANK = [2,3,4,5,6,7,8,9,10,11,12,13,14]
 MODEL_DECK = list(iter.product(RANK,SUIT))
 
-
+output = ""
 deck = copy.deepcopy(MODEL_DECK)
 #shuffle(deck)
 players = 9
@@ -31,12 +31,11 @@ def deal():
     #deck = deck[players*2]    
 
 def find(hand,board):
-    score = 0
+    score = 0L
     count = 1
     maxcount = 0
 
     #the second dict in s_check will contain an array of indexes of rank repetitions
-    s_check = [{},{}] # [{Rank: index},{Rank: [other indexes]}]
     f_check = {}
 
     best= []
@@ -47,7 +46,7 @@ def find(hand,board):
 
     output = "\n\n"+str(collection)+"\n"
     #find a pair
-    temp_score = 0 # used to weigh hand scores against each other check_score
+    temp_score = 0L # used to weigh hand scores against each other check_score
     temp_name = name
     for i in range(0,len(collection)):
 
@@ -60,14 +59,14 @@ def find(hand,board):
             
             
             if score < 13: # first pair found
-                temp_score = collection[i-count+1][0] + 11
+                temp_score = long(collection[i-count+1][0] + 11)
                 #output += "pair found  {0}\n".format(collection[i-count+1:i+1])
                 temp_name = "pair"
             
             elif score < 32: #2 pair found
                 b = float(collection[i-count+1][0])
                 # 2pair scoring algorithm
-                temp_score = 10**math.floor(math.log(b,10)+1)*((b%10)+1*(math.floor(math.log(b,10)))) 
+                temp_score = long(10**math.floor(math.log(b,10)+1)*((b%10)+1*(math.floor(math.log(b,10)))))
                 temp_score += best[0][0][0] #get Rank of pair in best
                 # used to be sure score for 2 pair is lower than previous score (if already scored)
                 temp_name = "2 pair"
@@ -79,7 +78,7 @@ def find(hand,board):
                 best.append(collection[i-count+1:i+1])
             
             elif count == 3: 
-                temp_score = collection[i-count+1][0] + 512
+                temp_score = long(collection[i-count+1][0] + 512)
                 temp_name = "trips"
 
             elif count == 4: 
@@ -96,43 +95,25 @@ def find(hand,board):
 
         # output += "incr={0}".format(incr)+"\n"
 
-        # if rank of card is not already in s_check[0] 
-        if collection[i][0] not in s_check[0].keys():
-            #if card is ace add it as 1 and 14
-            if collection[i][0] == 14:
-                s_check[0][1] = collection[i]
-            s_check[0][collection[i][0]] = collection[i]
-
-        else:
-            #if the rank is not already a repetition (it only will be in case of count > 2)
-            if collection[i][0] not in s_check[1].keys():
-                #make a space for the card
-                s_check[1][collection[i][0]] = []
-            # add the card as repeated
-            s_check[1][collection[i][0]].append(collection[i])
-
+        #FLUSH SETUP
         #if the suit is a repetition store it
         if collection[i][1] not in f_check.keys():
             f_check[collection[i][1]] = []
         f_check[collection[i][1]].append(collection[i])
 
-    if len(s_check[0]) >= 5 and score < 527:
-        for i in range(0,len(s_check[0])-4):
-            s = s_check[0].keys()
-            s.sort()
-            s = s[::-1][i:i+5] #flip sort to high->low
+    if score < 527:
+            #flip sort to high->low
             # if the highest card in the straights rank -4 == the lowest rank its a straight
             # ex: [10 J Q K A] -> flip -> [A K Q J 10] -> s[0] - 4 == s[4] == 10 -> STRAIGHT
             # ex: [9 J Q K A] -> flip -> [A K Q J 9] -> s[0] - 4 != s[4]         -> NOT STRAIGHT :'(
-            if s[0]-4 == s[4]:
+            s = is_straight(collection)
+            if s:
                 temp_name = "straight"
-                temp_score = 526+s[4]
+                temp_score = long(526+s[4][0])
             if temp_score > score:
                 score = temp_score
                 name = temp_name
-                best = []
-                for key in s:
-                     best.append(s_check[0][key])
+                best = copy.deepcopy(s)
                 best = best[::-1] #flip it to make it low -> high
     ## FIND FLUSHES
     for key in f_check:
@@ -140,32 +121,65 @@ def find(hand,board):
             temp_name = "flush"
             for i in range(0,len(f_check[key])-4):
                 temp_score = ""
+                
                 for card in f_check[key][i:i+5]:
+                    #digit sum the Ranks
                     temp_score += str(get_rank(card))
-                temp_score = int(temp_score)
-
-                if f_check[key][i:i+5][0][0] - 4 == f_check[key][i:i+5][4][0]:
+                temp_score = long(temp_score)
+                s = is_straight(f_check[key][i:i+5])
+                if s:
                     temp_name = "straight flush"
-                    temp_score *= 1000
+                    temp_score *= 100
+                    print "{} {}".format(f_check[key][0],f_check[key][0][0] == 14)
+                    if s[0][0] == 14:
+                        temp_name =  "royal flush"
+                        # temp_score = 2**80
 
                 if temp_score > score:
                     score = temp_score
                     name = temp_name
                     best = f_check[key][i:i+5]
-
+    best.sort()
     output += "found {}    {}\n".format(name,best)
     output += "score: {}\n".format(float(score))
-    if "flush" in name:
+    if "straight" in name:
         return output
     return ""
 def get_rank(card):
     assert type(card) == tuple
     return card[0]
+#hand is list of cards
+
+def is_straight(hand):
+    h = {}
+    assert type(hand) == list
+    for card in hand:
+        if 14 in card:
+            hand.append((1,card[1]))
+            break
+   #remove duplicate ranks
+    for card in hand:
+        h[card[0]] = card
+    hand = h.values()
+    hand.sort()
+    hand = hand[::-1]
+    
+    for i in range(0,len(hand)-4):
+        if hand[i][0] - 4 == hand[4+i][0]:
+            if hand[i+4][0] == 1:
+                pass
+            # print hand[i:i+5]
+            # print "{} - 4 = {}    {}".format(hand[i][0], hand[4][0], hand[i][0]-4 == hand[4+i][0])
+            return hand[i:i+5]
+    return
 
 
 ## test vars/funcs
 top = 13 * 4 # top card to draw-1 * 4
 
+def out(o):
+    global output
+    output += str(o)+"\n"
 def convert(*cards):
     c_cards = [] #converted cards
     for i in cards:
@@ -176,12 +190,13 @@ def convert(*cards):
 
 def test(runs):
     f = open('./testfind.txt','w')
-    for _ in range(runs):
+    for i in range(runs):
         redraw()
         shuffle(drawn)
         find_test = drawn[0:7]
         find_test.sort()
         f.write(find(find_test[:2],find_test[2:]))
+        if not i%1000: print i
     f.close()
 
 t_hands = convert(*"13H 14H".split(" "))
