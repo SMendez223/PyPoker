@@ -37,7 +37,7 @@ def find(hand,board):
 
     #the second dict in s_check will contain an array of indexes of rank repetitions
     s_check = [{},{}] # [{Rank: index},{Rank: [other indexes]}]
-    f_check = []
+    f_check = {}
 
     best= []
     collection = hand+board
@@ -45,7 +45,7 @@ def find(hand,board):
     collection = collection[::-1]
     name = "" #collection name
 
-    output = ""
+    output = "\n\n"+str(collection)+"\n"
     #find a pair
     temp_score = 0 # used to weigh hand scores against each other check_score
     temp_name = name
@@ -96,24 +96,26 @@ def find(hand,board):
 
         # output += "incr={0}".format(incr)+"\n"
 
-        # if rank of card already been added to s_check[0] (therefore being repeated)
-        if collection[i][0] in s_check[0].keys():
+        # if rank of card is not already in s_check[0] 
+        if collection[i][0] not in s_check[0].keys():
+            #if card is ace add it as 1 and 14
+            if collection[i][0] == 14:
+                s_check[0][1] = collection[i]
+            s_check[0][collection[i][0]] = collection[i]
+
+        else:
             #if the rank is not already a repetition (it only will be in case of count > 2)
             if collection[i][0] not in s_check[1].keys():
                 #make a space for the card
                 s_check[1][collection[i][0]] = []
             # add the card as repeated
             s_check[1][collection[i][0]].append(collection[i])
-        else:
-            # if the card is not a repeat add it to main list
-            #if card is ace add it as 1 and 14
-            if collection[i][0] == 14:
-                s_check[0][1] = collection[i]
-            s_check[0][collection[i][0]] = collection[i]
 
+        #if the suit is a repetition store it
+        if collection[i][1] not in f_check.keys():
+            f_check[collection[i][1]] = []
+        f_check[collection[i][1]].append(collection[i])
 
-
-    ##CANNOT FIND ACE LOW STRAIGHTS
     if len(s_check[0]) >= 5 and score < 527:
         for i in range(0,len(s_check[0])-4):
             s = s_check[0].keys()
@@ -132,9 +134,34 @@ def find(hand,board):
                 for key in s:
                      best.append(s_check[0][key])
                 best = best[::-1] #flip it to make it low -> high
+    ## FIND FLUSHES
+    for key in f_check:
+        if len(f_check[key]) >= 5:
+            temp_name = "flush"
+            for i in range(0,len(f_check[key])-4):
+                temp_score = ""
+                for card in f_check[key][i:i+5]:
+                    temp_score += str(get_rank(card))
+                temp_score = int(temp_score)
+
+                if f_check[key][i:i+5][0][0] - 4 == f_check[key][i:i+5][4][0]:
+                    temp_name = "straight flush"
+                    temp_score *= 1000
+
+                if temp_score > score:
+                    score = temp_score
+                    name = temp_name
+                    best = f_check[key][i:i+5]
+
     output += "found {}    {}\n".format(name,best)
     output += "score: {}\n".format(float(score))
-    return output
+    if "flush" in name:
+        return output
+    return ""
+def get_rank(card):
+    assert type(card) == tuple
+    return card[0]
+
 
 ## test vars/funcs
 top = 13 * 4 # top card to draw-1 * 4
@@ -154,7 +181,6 @@ def test(runs):
         shuffle(drawn)
         find_test = drawn[0:7]
         find_test.sort()
-        f.write("\n\n"+str(find_test)+"\n")
         f.write(find(find_test[:2],find_test[2:]))
     f.close()
 
@@ -167,7 +193,7 @@ def redraw():
     new_deck()
     global drawn
     drawn = draw(top)
-test(1000)
+test(100000)
 
 
 
