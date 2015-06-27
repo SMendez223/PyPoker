@@ -35,6 +35,10 @@ def find(hand,board):
     count = 1
     maxcount = 0
 
+    #the second dict in s_check will contain an array of indexes of rank repetitions
+    s_check = [{},{}] # [{Rank: index},{Rank: [other indexes]}]
+    f_check = []
+
     best= []
     collection = hand+board
     collection.sort()
@@ -43,9 +47,10 @@ def find(hand,board):
 
     output = ""
     #find a pair
+    temp_score = 0 # used to weigh hand scores against each other check_score
+    temp_name = name
     for i in range(0,len(collection)):
-        temp_score = 0 # used to weigh hand scores against each other check_score
-        temp_name = name
+
         if i < len(collection)-1 and collection[i][0] == collection[i+1][0]: #if the ranks are the same
             count += 1 
         #only true if next card is not the same. count tells the number of consecutive cards
@@ -91,24 +96,42 @@ def find(hand,board):
 
         # output += "incr={0}".format(incr)+"\n"
 
-    #the second dict in s_check will contain an array of indexes of rank repetitions
-    s_check = [{},{}] # [{Rank: index},{Rank: [other indexes]}]
-    f_check = []
-    for i in range(0,len(collection)):
+        # if rank of card already been added to s_check[0] (therefore being repeated)
         if collection[i][0] in s_check[0].keys():
+            #if the rank is not already a repetition (it only will be in case of count > 2)
             if collection[i][0] not in s_check[1].keys():
+                #make a space for the card
                 s_check[1][collection[i][0]] = []
-            s_check[1][collection[i][0]].append(i)
-            continue
-        s_check[0][collection[i][0]] = i
+            # add the card as repeated
+            s_check[1][collection[i][0]].append(collection[i])
+        else:
+            # if the card is not a repeat add it to main list
+            #if card is ace add it as 1 and 14
+            if collection[i][0] == 14:
+                s_check[0][1] = collection[i]
+            s_check[0][collection[i][0]] = collection[i]
 
-    if len(s_check[0]) >= 5:
+
+
+    ##CANNOT FIND ACE LOW STRAIGHTS
+    if len(s_check[0]) >= 5 and score < 527:
         for i in range(0,len(s_check[0])-4):
             s = s_check[0].keys()
             s.sort()
-            s = s[i:i+5]
-            if s[4]-4 == s[0]:
-                output += "straight found  {}".format(s)
+            s = s[::-1][i:i+5] #flip sort to high->low
+            # if the highest card in the straights rank -4 == the lowest rank its a straight
+            # ex: [10 J Q K A] -> flip -> [A K Q J 10] -> s[0] - 4 == s[4] == 10 -> STRAIGHT
+            # ex: [9 J Q K A] -> flip -> [A K Q J 9] -> s[0] - 4 != s[4]         -> NOT STRAIGHT :'(
+            if s[0]-4 == s[4]:
+                temp_name = "straight"
+                temp_score = 526+s[4]
+            if temp_score > score:
+                score = temp_score
+                name = temp_name
+                best = []
+                for key in s:
+                     best.append(s_check[0][key])
+                best = best[::-1] #flip it to make it low -> high
     output += "found {}    {}\n".format(name,best)
     output += "score: {}\n".format(float(score))
     return output
