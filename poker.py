@@ -13,44 +13,50 @@ deck = []
 players = 9
 loc = 0 # location within a deck
 hands = []
+
+
 class Card(object):
     def __init__(self,rank,suit):
         assert type(rank) == int
         assert type(suit) == str
         self.__rank__ = rank
         self.__suit__ = suit
-    def getsuit(self):
+    def getSuit(self):
         return self.__suit__
     #returns int 2-14
-    def getrankval(self):
+    def getValue(self):
         return self.__rank__
     #returns str 2-10 then face card J-A
-    def getrank(self):
-        if self.getrankval() > 10:
-            return str(FACE[self.getrankval()%10-1])
-        if self.getrankval() == 1:
+    def getRank(self):
+        if self.getValue() > 10:
+            return str(FACE[self.getValue()%10-1])
+        if self.getValue() == 1:
             return str(FACE[-1])
-        return str(self.getrankval())
+        return str(self.getValue())
     def __str__(self):
-        return self.getrank()+self.getsuit()
+        return self.getRank()+self.getSuit()
     def __repr__(self):
         return str(self)
     def __getitem__(self,key):
-        if key == 0: return self.getrank()
-        return self.getsuit()
+        if key == 0: return self.getRank()
+        return self.getSuit()
+
+
 
 class Hand(object):
-    def __init__(self, hand):
+    def __init__(self, hand=[]):
         assert type(hand) == list
         self.hand = hand
         self.__original__ = copy.deepcopy(hand) #non sorted
         self.sort_rank()
 
+        # High Card, Pair, 2 pair, etc
+        self.collection_name = ""
     def sort_rank(self,r=True):
-        self.hand = sorted(self.hand, key=lambda x: x.getrankval(), reverse=r)
+        self.hand = sorted(self.hand, key=lambda x: x.getValue(), reverse=r)
     def sort_suit(self,r=True):
         self.hand = sorted(self.hand, key=lambda x: x[1], reverse=r)
-    def get_orig(self):
+    def getOrig(self):
         return self.__original__
     def cards(self):
         return self.hand
@@ -59,7 +65,7 @@ class Hand(object):
     def __getitem__(self,key):
         return self.hand[key]
     def __str__(self):
-        return str(self.hand)    
+        return str(type(self))+" "+str(self.hand)    
     def __repr__(self):
         return str(self)
     def __add__(self,other):
@@ -67,8 +73,41 @@ class Hand(object):
             return Hand(self.cards() + other.cards())
         if type(other) == Card:
             return Hand(self.cards() + [other])
+        if type(other) == list:
+            return Hand(self.cards() + other)
+
+class RankedHand(object):
+    def __init__(self, best, kickers, name, score):
+        assert type(best) == type(kickers) == list
+        self._best = best
+        self._kickers = kickers
+        self._name = name
+        self._score = score
+    def name(self):
+        return self.collection_name
+    def best(self):
+        return self._best
+    def kickers(self):
+        return self._kickers
+    def name(self):
+        return self._name
+    def score(self):
+        return self._score
+    def cards(self):
+        return self.best() + self.kickers()
+    def __str__(self):
+        return self.name()+" "+str(self.cards())+" "+str(self.score())    
+    def __repr__(self):
+        return str(self)
 
 
+# class Player(object):
+#     """docstring for Player"""
+#     id = 1
+#     def __init__(self, hand):
+
+#         self.arg = arg
+        
 def new_deck():
     global deck
     deck = []
@@ -89,11 +128,7 @@ def deal():
     #deck = deck[players*2]    
 
 def find(hand,board):
-    
-
-    #the second dict in s_check will contain an array of indexes of rank repetitions
-    f_check = {}
-
+    f_check = []
     best= []
     collection = hand+board
     name = "High card" #collection name
@@ -115,8 +150,8 @@ def find(hand,board):
         # ex: [9 J Q K A] -> flip -> [A K Q J 9] -> s[0] - 4 != s[4]         -> NOT STRAIGHT :'(
         s = is_straight(collection)
         if s:
-            temp_name = "straight {} -> {}".format(s[-1].getrank(),s[0].getrank())
-            temp_score = long(526+s[4].getrankval())
+            temp_name = "straight {} -> {}".format(s[-1].getRank(),s[0].getRank())
+            temp_score = long(526+s[4].getValue())
         if temp_score > score:
             score = temp_score
             name = temp_name
@@ -133,24 +168,24 @@ def find(hand,board):
             
             
             if score < 13: # first pair found
-                temp_score = long(temp_best[0].getrankval() + 11)
+                temp_score = long(temp_best[0].getValue() + 11)
                 #output += "pair found  {0}\n".format(collection[i-count+1:i+1])
-                temp_name = "pair {}'s".format(temp_best[0].getrank())
+                temp_name = "pair {}'s".format(temp_best[0].getRank())
             
             elif score < 32: #2 pair found
-                b = best[0].getrankval()
+                b = best[0].getValue()
                 # 2pair scoring algorithm
                 temp_score = long(10**math.floor(math.log(b,10)+1)*((b%10)+1*(math.floor(math.log(b,10)))))
-                temp_score += temp_best[0].getrankval() #get Rank of pair in best
+                temp_score += temp_best[0].getValue() #get Rank of pair in best
                 # used to be sure score for 2 pair is lower than previous score (if already scored)
-                temp_name = "2 "+temp_name+" {}'s".format(temp_best[0].getrank())
+                temp_name = "2 "+temp_name+" {}'s".format(temp_best[0].getRank())
 
             
 
 
             if count == 3: 
-                temp_score = long(temp_best[0].getrankval() + 512)
-                temp_name = "trip {}'s".format(temp_best[0].getrank())
+                temp_score = long(temp_best[0].getValue() + 512)
+                temp_name = "trip {}'s".format(temp_best[0].getRank())
                 if(len(best) == 4):
                     best = best[0:2]
             if count + maxcount == 5: 
@@ -158,11 +193,11 @@ def find(hand,board):
                 temp_score -= 512 # rank of trips
                 temp_score *= 1000
                 if count == 2:
-                    temp_name = temp_name.format(best[0].getrank(), temp_best[0].getrank())
-                    temp_score += temp_best[0].getrankval()
+                    temp_name = temp_name.format(best[0].getRank(), temp_best[0].getRank())
+                    temp_score += temp_best[0].getValue()
                 if count == 3:
-                    temp_name = temp_name.format(temp_best[0].getrank(), best[0].getrank())
-                    temp_score += best[0].getrankval()
+                    temp_name = temp_name.format(temp_best[0].getRank(), best[0].getRank())
+                    temp_score += best[0].getValue()
                 temp_score += 200000000 # highest flush is 141,312,119
 
                 
@@ -170,8 +205,8 @@ def find(hand,board):
             
 
             elif count == 4: 
-                temp_name = "quad {}'s".format(temp_best[0].getrank())
-                temp_score = temp_best[0].getrankval() + 300000000
+                temp_name = "quad {}'s".format(temp_best[0].getRank())
+                temp_score = temp_best[0].getValue() + 300000000
 
             if maxcount < count: maxcount = count
 
@@ -189,7 +224,7 @@ def find(hand,board):
     collection.sort_suit()
     count = 0
     for i in range(len(collection)-4):
-        if collection[i-count].getsuit() == collection[i+4].getsuit(): 
+        if collection[i-count].getSuit() == collection[i+4].getSuit(): 
             f_check = collection[i-count:i+5]
             count += 1
             temp_name = "flush"
@@ -201,11 +236,11 @@ def find(hand,board):
             temp_name = "straight flush"
             temp_score = "1000"
             f_check = copy.deepcopy(s)
-            if s[0].getrankval() == 14:
+            if s[0].getValue() == 14:
                 temp_name = "Royal Flush"
 
         for card in f_check:
-            temp_score += str(card.getrankval())
+            temp_score += str(card.getValue())
         temp_score = long(temp_score)
         if temp_score > score:
             score = temp_score
@@ -215,19 +250,17 @@ def find(hand,board):
     
 
     ##find highest 5 card hand
+    temp_best = copy.deepcopy(best)
+    kickers = []
+    collection.sort_rank()
     for card in collection:
-        if card not in best and len(best) < 5:
-            best.append(card)
+        if card not in best and len(best)+len(kickers) < 5:
+            kickers.append(card)
 
-    # #if your highest 5 card hand uses your hand
-    # if set(hand) < set(best):
-    #     for card in hand:
-    #             score = 
-
-    # ## if all the best cards are on the board    
-    # if set(best) < set(board.cards()):
-    #     score = hand.cards[0].getrankval()
-    #     name = " {} Kicker".format(hand.cards[0].getrank())
+    ##if the best hand uses all five cards on the board
+    ##your REAL score is 0
+    if len(set(board) - set(best + kickers)) == 0:
+        score = -1
 
 
 
@@ -235,8 +268,23 @@ def find(hand,board):
     output += "score: {}\n".format(long(score))
     output += "\n\n"
     if name:
-        return output,score
+        return RankedHand(best,kickers,name,score)
     return ""
+
+def showdown(board,*players):
+    assert type(players) == Player
+    maxscore = 0
+    maxhands = []
+    for player in players:
+        if player.getScore() > maxscore:
+            maxscore = score
+            maxhands = [player]
+        elif player.getScore() == maxscore:
+            maxhands.append(player)
+    for player in maxhands:
+        #if players hand is being used in the best hand
+        if set(player.getKickers()) >= set(player.getHand()):
+            pass
 
 
 
@@ -244,18 +292,18 @@ def is_straight(hand):
     h = {}
     assert type(hand) == Hand
     for card in hand:
-        if 14 == card.getrankval():
-            hand += Card(1,card.getsuit())
+        if 14 == card.getValue():
+            hand += Card(1,card.getSuit())
             break
    #remove duplicate ranks
     for card in hand:
-        h[card.getrankval()] = card
+        h[card.getValue()] = card
     hand = h.values()
     hand.sort()
     hand = Hand(hand)
     
     for i in range(0,len(hand)-4):
-        if hand[i].getrankval() - 4 == hand[4+i].getrankval():
+        if hand[i].getValue() - 4 == hand[4+i].getValue():
             if hand[i+4][0] == 1:
                 pass
             # print hand[i:i+5]
@@ -297,14 +345,34 @@ def testrand(runs):
         f.write(find(Hand(find_test[:2]),Hand(find_test[2:]))[0])
         if not i%1000: print i
     f.close()
-
+def test_showdown(runs,players):
+    """will simulate a showdown between players, and choose a winner"""
+    f = open('./testfind.txt','w')
+    global deck
+    for _ in range(runs):
+        hands = []
+        scores = []
+        new_deck()
+        shuffle(deck)
+        board = Hand(draw(5))
+        f.write(str(board)+"\n")
+        for i in range(players):
+            p = find(Hand(draw(2)),board)
+            f.write("Player {}: {} {}\n".format(i+1,p.cards(),p.name()))
+        f.write("\n\n")
+    f.close()
 t_hands = [convert(*"A,♦ 10,♦".split(" "))]
 t_boards = [convert(*"J,♦ Q,♦ K,♦ 9,♦ 8,♦".split(" "))]
 # print find(t_hands,t_boards)
 drawn = []
 
-testrand(100)
+test_showdown(100,4)
 
+new_deck()
+shuffle(deck)
+hand = Hand(draw(2))
+board = Hand(draw(5))
+best= find(hand,board)
 
 
 
