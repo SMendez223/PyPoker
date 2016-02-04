@@ -1,2 +1,5 @@
 # PyPoker
-Texas Holdem Simulator primarily used to train AI
+Texas Holdem
+
+To Do:
+  Make better
